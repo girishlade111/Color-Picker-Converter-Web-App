@@ -1,0 +1,1435 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Color Picker & Converter</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* Custom styles for color picker canvas */
+        #colorPickerCanvas {
+            cursor: crosshair;
+            touch-action: none; /* Prevent default touch actions like scrolling */
+        }
+
+        /* Inter font from Google Fonts */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Custom scrollbar for better aesthetics */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        /* Dark mode scrollbar */
+        .dark ::-webkit-scrollbar-track {
+            background: #333;
+        }
+
+        .dark ::-webkit-scrollbar-thumb {
+            background: #666;
+        }
+
+        .dark ::-webkit-scrollbar-thumb:hover {
+            background: #999;
+        }
+
+        /* Custom range slider styling */
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 8px;
+            background: #d3d3d3;
+            outline: none;
+            opacity: 0.7;
+            -webkit-transition: .2s;
+            transition: opacity .2s;
+            border-radius: 4px;
+        }
+
+        input[type="range"]:hover {
+            opacity: 1;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #4A90E2;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #4A90E2;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .dark input[type="range"] {
+            background: #555;
+        }
+        .dark input[type="range"]::-webkit-slider-thumb {
+            background: #6A90E2;
+        }
+        .dark input[type="range"]::-moz-range-thumb {
+            background: #6A90E2;
+        }
+
+        /* Specific background for Hue slider */
+        #hueSlider {
+            background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+        }
+        /* Specific background for Saturation slider */
+        #saturationSlider {
+            background: linear-gradient(to right, #808080, #ff0000); /* Example: grey to red, will be dynamic */
+        }
+        /* Specific background for Lightness slider */
+        #lightnessSlider {
+            background: linear-gradient(to right, #000, #808080, #fff);
+        }
+        /* Specific background for Alpha slider */
+        #alphaSlider {
+            background: linear-gradient(to right, rgba(0,0,0,0), rgba(0,0,0,1));
+            background-image: linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%), linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%);
+            background-size: 16px 16px;
+            background-position: 0 0, 8px 8px;
+        }
+        .dark #alphaSlider {
+            background-image: linear-gradient(45deg, #444 25%, transparent 25%, transparent 75%, #444 75%), linear-gradient(45deg, #444 25%, transparent 25%, transparent 75%, #444 75%);
+        }
+
+        /* For the "Copied!" message */
+        .copy-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 5px;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+            pointer-events: none;
+            z-index: 100;
+        }
+        .copy-message.show {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-900 dark:bg-gray-900 dark:text-gray-100 transition-colors duration-300 min-h-screen flex flex-col items-center py-8 px-4 sm:px-6 lg:px-8">
+
+    <div class="max-w-6xl w-full bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 sm:p-8 lg:p-10 flex flex-col gap-8">
+        <!-- Header -->
+        <div class="flex flex-col sm:flex-row justify-between items-center mb-6">
+            <h1 class="text-4xl font-bold text-indigo-700 dark:text-indigo-400 mb-4 sm:mb-0">Color Picker & Converter</h1>
+            <div class="flex items-center space-x-4">
+                <button id="themeToggle" class="p-3 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 shadow-md hover:scale-105 transition-transform duration-200">
+                    <i class="fas fa-moon text-lg dark:hidden"></i>
+                    <i class="fas fa-sun text-lg hidden dark:inline-block"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Color Picker & Sliders Section -->
+            <div class="flex flex-col gap-6 p-6 bg-gray-50 dark:bg-gray-700 rounded-lg shadow-inner">
+                <h2 class="text-2xl font-semibold text-gray-800 dark:text-gray-200 mb-4">Pick Your Color</h2>
+                <div class="relative w-full aspect-square max-w-md mx-auto">
+                    <canvas id="colorPickerCanvas" class="w-full h-full rounded-lg shadow-lg border-2 border-indigo-300 dark:border-indigo-600"></canvas>
+                    <div id="pickerIndicator" class="absolute w-4 h-4 border-2 border-white rounded-full shadow-lg" style="pointer-events: none;"></div>
+                </div>
+
+                <!-- Current Color Display -->
+                <div class="flex items-center justify-center gap-4 mt-6">
+                    <div id="currentColorDisplay" class="w-24 h-24 rounded-full shadow-xl border-2 border-gray-300 dark:border-gray-600 transition-colors duration-200" style="background-color: #4A90E2;"></div>
+                    <span id="currentColorHex" class="text-xl font-mono text-gray-700 dark:text-gray-300">#4A90E2</span>
+                </div>
+
+                <!-- Sliders -->
+                <div class="flex flex-col gap-4 mt-6">
+                    <div class="flex items-center gap-4">
+                        <label for="hueSlider" class="w-16 text-right text-gray-700 dark:text-gray-300">Hue</label>
+                        <input type="range" id="hueSlider" min="0" max="360" value="210" class="flex-grow">
+                        <span id="hueValue" class="w-10 text-right font-mono text-gray-700 dark:text-gray-300">210</span>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <label for="saturationSlider" class="w-16 text-right text-gray-700 dark:text-gray-300">Sat</label>
+                        <input type="range" id="saturationSlider" min="0" max="100" value="67" class="flex-grow">
+                        <span id="saturationValue" class="w-10 text-right font-mono text-gray-700 dark:text-gray-300">67</span>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <label for="lightnessSlider" class="w-16 text-right text-gray-700 dark:text-gray-300">Light</label>
+                        <input type="range" id="lightnessSlider" min="0" max="100" value="59" class="flex-grow">
+                        <span id="lightnessValue" class="w-10 text-right font-mono text-gray-700 dark:text-gray-300">59</span>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <label for="alphaSlider" class="w-16 text-right text-gray-700 dark:text-gray-300">Alpha</label>
+                        <input type="range" id="alphaSlider" min="0" max="100" value="100" class="flex-grow">
+                        <span id="alphaValue" class="w-10 text-right font-mono text-gray-700 dark:text-gray-300">100</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Color Conversion & Input Section -->
+            <div class="flex flex-col gap-6 p-6 bg-gray-50 dark:bg-gray-700 rounded-lg shadow-inner">
+                <h2 class="text-2xl font-semibold text-gray-800 dark:text-gray-200 mb-4">Convert & Input Colors</h2>
+
+                <!-- Input Fields -->
+                <div class="flex flex-col gap-4">
+                    <div class="flex items-center gap-2">
+                        <label for="hexInput" class="w-20 text-gray-700 dark:text-gray-300">HEX</label>
+                        <input type="text" id="hexInput" value="#4A90E2" class="flex-grow p-2 rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-gray-800 dark:text-gray-200">
+                        <button class="copy-btn p-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 transition-colors duration-200" data-target="hexInput"><i class="fas fa-copy"></i></button>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label for="rgbInput" class="w-20 text-gray-700 dark:text-gray-300">RGB</label>
+                        <input type="text" id="rgbInput" value="rgb(74, 144, 226)" class="flex-grow p-2 rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-gray-800 dark:text-gray-200">
+                        <button class="copy-btn p-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 transition-colors duration-200" data-target="rgbInput"><i class="fas fa-copy"></i></button>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label for="hslInput" class="w-20 text-gray-700 dark:text-gray-300">HSL</label>
+                        <input type="text" id="hslInput" value="hsl(210, 67%, 59%)" class="flex-grow p-2 rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-gray-800 dark:text-gray-200">
+                        <button class="copy-btn p-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 transition-colors duration-200" data-target="hslInput"><i class="fas fa-copy"></i></button>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label for="hsvInput" class="w-20 text-gray-700 dark:text-gray-300">HSV</label>
+                        <input type="text" id="hsvInput" value="hsv(210, 67%, 89%)" class="flex-grow p-2 rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-gray-800 dark:text-gray-200">
+                        <button class="copy-btn p-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 transition-colors duration-200" data-target="hsvInput"><i class="fas fa-copy"></i></button>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label for="cmykInput" class="w-20 text-gray-700 dark:text-gray-300">CMYK</label>
+                        <input type="text" id="cmykInput" value="cmyk(67, 36, 0, 11)" class="flex-grow p-2 rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-gray-800 dark:text-gray-200">
+                        <button class="copy-btn p-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 transition-colors duration-200" data-target="cmykInput"><i class="fas fa-copy"></i></button>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label for="namedColorInput" class="w-20 text-gray-700 dark:text-gray-300">Named</label>
+                        <input type="text" id="namedColorInput" value="cornflowerblue" class="flex-grow p-2 rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-gray-800 dark:text-gray-200">
+                        <button class="copy-btn p-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 transition-colors duration-200" data-target="namedColorInput"><i class="fas fa-copy"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Additional Features Section -->
+        <div class="flex flex-col gap-8 mt-8">
+            <h2 class="text-3xl font-bold text-indigo-700 dark:text-indigo-400">Additional Tools</h2>
+
+            <!-- Palette Generator -->
+            <div class="p-6 bg-gray-50 dark:bg-gray-700 rounded-lg shadow-inner">
+                <h3 class="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-4">Palette Generator</h3>
+                <div class="flex flex-wrap gap-3 mb-4">
+                    <button id="generateMonochromatic" class="btn-secondary">Monochromatic</button>
+                    <button id="generateAnalogous" class="btn-secondary">Analogous</button>
+                    <button id="generateComplementary" class="btn-secondary">Complementary</button>
+                    <button id="generateTriadic" class="btn-secondary">Triadic</button>
+                </div>
+                <div id="generatedPalette" class="flex flex-wrap gap-2 justify-center p-4 bg-white dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-600 min-h-[80px]">
+                    <!-- Generated colors will appear here -->
+                </div>
+            </div>
+
+            <!-- Saved Palettes & Color History -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="p-6 bg-gray-50 dark:bg-gray-700 rounded-lg shadow-inner">
+                    <h3 class="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-4">Saved Palettes</h3>
+                    <div class="flex gap-2 mb-4">
+                        <input type="text" id="paletteNameInput" placeholder="Palette Name" class="flex-grow p-2 rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-800 dark:text-gray-200">
+                        <button id="savePaletteBtn" class="btn-primary">Save Current Palette</button>
+                    </div>
+                    <div id="savedPalettesContainer" class="flex flex-col gap-3 max-h-60 overflow-y-auto pr-2">
+                        <!-- Saved palettes will be loaded here -->
+                        <p class="text-gray-500 dark:text-gray-400 text-sm">No palettes saved yet.</p>
+                    </div>
+                </div>
+
+                <div class="p-6 bg-gray-50 dark:bg-gray-700 rounded-lg shadow-inner">
+                    <h3 class="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-4">Color History</h3>
+                    <div id="colorHistoryContainer" class="flex flex-wrap gap-2 max-h-60 overflow-y-auto p-2 bg-white dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-600">
+                        <!-- Color history will appear here -->
+                        <p class="text-gray-500 dark:text-gray-400 text-sm">No history yet.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gradient Generator -->
+            <div class="p-6 bg-gray-50 dark:bg-gray-700 rounded-lg shadow-inner">
+                <h3 class="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-4">Gradient Generator</h3>
+                <div class="flex flex-wrap gap-4 mb-4 items-center">
+                    <div class="flex items-center gap-2">
+                        <label for="gradientColor1" class="text-gray-700 dark:text-gray-300">Color 1:</label>
+                        <input type="color" id="gradientColor1" value="#FF0000" class="w-10 h-10 rounded-full cursor-pointer">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label for="gradientColor2" class="text-gray-700 dark:text-gray-300">Color 2:</label>
+                        <input type="color" id="gradientColor2" value="#0000FF" class="w-10 h-10 rounded-full cursor-pointer">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label for="gradientType" class="text-gray-700 dark:text-gray-300">Type:</label>
+                        <select id="gradientType" class="p-2 rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-800 dark:text-gray-200">
+                            <option value="linear">Linear</option>
+                            <option value="radial">Radial</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2" id="linearAngleGroup">
+                        <label for="gradientAngle" class="text-gray-700 dark:text-gray-300">Angle:</label>
+                        <input type="range" id="gradientAngle" min="0" max="360" value="90" class="w-24">
+                        <span id="gradientAngleValue" class="font-mono text-gray-700 dark:text-gray-300">90°</span>
+                    </div>
+                </div>
+                <div id="gradientPreview" class="w-full h-24 rounded-md mb-4 shadow-md border border-gray-200 dark:border-gray-600" style="background: linear-gradient(90deg, #FF0000, #0000FF);"></div>
+                <div class="flex items-center gap-2">
+                    <input type="text" id="gradientCssCode" readonly class="flex-grow p-2 rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-gray-800 dark:text-gray-200">
+                    <button class="copy-btn p-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 transition-colors duration-200" data-target="gradientCssCode"><i class="fas fa-copy"></i></button>
+                </div>
+            </div>
+
+            <!-- Color Blindness Simulator -->
+            <div class="p-6 bg-gray-50 dark:bg-gray-700 rounded-lg shadow-inner">
+                <h3 class="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-4">Color Blindness Simulator (Experimental)</h3>
+                <p class="text-gray-600 dark:text-gray-400 mb-4 text-sm">This feature applies a filter to the current color display to simulate different types of color blindness. Note: This is a visual approximation.</p>
+                <div class="flex flex-wrap gap-3 mb-4">
+                    <button id="simulateNormal" class="btn-secondary active-filter">Normal Vision</button>
+                    <button id="simulateProtanopia" class="btn-secondary">Protanopia</button>
+                    <button id="simulateDeuteranopia" class="btn-secondary">Deuteranopia</button>
+                    <button id="simulateTritanopia" class="btn-secondary">Tritanopia</button>
+                    <button id="simulateAchromatopsia" class="btn-secondary">Achromatopsia</button>
+                </div>
+                <div class="flex items-center justify-center gap-4 mt-6">
+                    <div id="simulatedColorDisplay" class="w-24 h-24 rounded-full shadow-xl border-2 border-gray-300 dark:border-gray-600 transition-colors duration-200" style="background-color: #4A90E2;"></div>
+                    <span id="simulatedColorHex" class="text-xl font-mono text-gray-700 dark:text-gray-300">#4A90E2</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Global Copy Message -->
+    <div id="copyMessage" class="copy-message">Copied!</div>
+
+    <script>
+        // Global variables for Firebase (if needed in the future, currently using localStorage)
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // UI Elements
+        const themeToggle = document.getElementById('themeToggle');
+        const colorPickerCanvas = document.getElementById('colorPickerCanvas');
+        const pickerIndicator = document.getElementById('pickerIndicator');
+        const currentColorDisplay = document.getElementById('currentColorDisplay');
+        const currentColorHex = document.getElementById('currentColorHex');
+
+        const hueSlider = document.getElementById('hueSlider');
+        const saturationSlider = document.getElementById('saturationSlider');
+        const lightnessSlider = document.getElementById('lightnessSlider');
+        const alphaSlider = document.getElementById('alphaSlider');
+
+        const hueValue = document.getElementById('hueValue');
+        const saturationValue = document.getElementById('saturationValue');
+        const lightnessValue = document.getElementById('lightnessValue');
+        const alphaValue = document.getElementById('alphaValue');
+
+        const hexInput = document.getElementById('hexInput');
+        const rgbInput = document.getElementById('rgbInput');
+        const hslInput = document.getElementById('hslInput');
+        const hsvInput = document.getElementById('hsvInput');
+        const cmykInput = document.getElementById('cmykInput');
+        const namedColorInput = document.getElementById('namedColorInput');
+        const copyButtons = document.querySelectorAll('.copy-btn');
+        const copyMessage = document.getElementById('copyMessage');
+
+        const generateMonochromaticBtn = document.getElementById('generateMonochromatic');
+        const generateAnalogousBtn = document.getElementById('generateAnalogous');
+        const generateComplementaryBtn = document.getElementById('generateComplementary');
+        const generateTriadicBtn = document.getElementById('generateTriadic');
+        const generatedPaletteContainer = document.getElementById('generatedPalette');
+
+        const paletteNameInput = document.getElementById('paletteNameInput');
+        const savePaletteBtn = document.getElementById('savePaletteBtn');
+        const savedPalettesContainer = document.getElementById('savedPalettesContainer');
+        const colorHistoryContainer = document.getElementById('colorHistoryContainer');
+
+        const gradientColor1Input = document.getElementById('gradientColor1');
+        const gradientColor2Input = document.getElementById('gradientColor2');
+        const gradientTypeSelect = document.getElementById('gradientType');
+        const gradientAngleInput = document.getElementById('gradientAngle');
+        const gradientAngleValueSpan = document.getElementById('gradientAngleValue');
+        const linearAngleGroup = document.getElementById('linearAngleGroup');
+        const gradientPreview = document.getElementById('gradientPreview');
+        const gradientCssCodeInput = document.getElementById('gradientCssCode');
+
+        const simulateNormalBtn = document.getElementById('simulateNormal');
+        const simulateProtanopiaBtn = document.getElementById('simulateProtanopia');
+        const simulateDeuteranopiaBtn = document.getElementById('simulateDeuteranopia');
+        const simulateTritanopiaBtn = document.getElementById('simulateTritanopia');
+        const simulateAchromatopsiaBtn = document.getElementById('simulateAchromatopsia');
+        const simulatedColorDisplay = document.getElementById('simulatedColorDisplay');
+        const simulatedColorHex = document.getElementById('simulatedColorHex');
+        let currentFilter = 'normal'; // Stores the current color blindness filter
+
+        const ctx = colorPickerCanvas.getContext('2d');
+        let isDragging = false;
+        let currentHsl = { h: 210, s: 67, l: 59, a: 1 }; // Initial color: CornflowerBlue
+        let currentRgb = { r: 74, g: 144, b: 226, a: 1 };
+
+        const COLOR_HISTORY_MAX = 20;
+        let colorHistory = [];
+
+        // --- Utility Functions for Color Conversion ---
+
+        /**
+         * Converts HSL color values to RGB.
+         * @param {number} h Hue (0-360)
+         * @param {number} s Saturation (0-100)
+         * @param {number} l Lightness (0-100)
+         * @param {number} a Alpha (0-1)
+         * @returns {object} RGB color object {r, g, b, a}
+         */
+        function hslToRgb(h, s, l, a = 1) {
+            s /= 100;
+            l /= 100;
+            let c = (1 - Math.abs(2 * l - 1)) * s,
+                x = c * (1 - Math.abs((h / 60) % 2 - 1)),
+                m = l - c / 2,
+                r = 0,
+                g = 0,
+                b = 0;
+
+            if (0 <= h && h < 60) {
+                r = c; g = x; b = 0;
+            } else if (60 <= h && h < 120) {
+                r = x; g = c; b = 0;
+            } else if (120 <= h && h < 180) {
+                r = 0; g = c; b = x;
+            } else if (180 <= h && h < 240) {
+                r = 0; g = x; b = c;
+            } else if (240 <= h && h < 300) {
+                r = x; g = 0; b = c;
+            } else if (300 <= h && h < 360) {
+                r = c; g = 0; b = x;
+            }
+            r = Math.round((r + m) * 255);
+            g = Math.round((g + m) * 255);
+            b = Math.round((b + m) * 255);
+
+            return { r, g, b, a };
+        }
+
+        /**
+         * Converts RGB color values to HSL.
+         * @param {number} r Red (0-255)
+         * @param {number} g Green (0-255)
+         * @param {number} b Blue (0-255)
+         * @param {number} a Alpha (0-1)
+         * @returns {object} HSL color object {h, s, l, a}
+         */
+        function rgbToHsl(r, g, b, a = 1) {
+            r /= 255;
+            g /= 255;
+            b /= 255;
+
+            let max = Math.max(r, g, b),
+                min = Math.min(r, g, b);
+            let h, s, l = (max + min) / 2;
+
+            if (max === min) {
+                h = s = 0; // achromatic
+            } else {
+                let d = max - min;
+                s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                switch (max) {
+                    case r:
+                        h = (g - b) / d + (g < b ? 6 : 0);
+                        break;
+                    case g:
+                        h = (b - r) / d + 2;
+                        break;
+                    case b:
+                        h = (r - g) / d + 4;
+                        break;
+                }
+                h /= 6;
+            }
+
+            h = Math.round(h * 360);
+            s = Math.round(s * 100);
+            l = Math.round(l * 100);
+
+            return { h, s, l, a };
+        }
+
+        /**
+         * Converts RGB color values to Hexadecimal.
+         * @param {number} r Red (0-255)
+         * @param {number} g Green (0-255)
+         * @param {number} b Blue (0-255)
+         * @param {number} a Alpha (0-1)
+         * @returns {string} Hex color string (e.g., "#RRGGBB" or "#RRGGBBAA")
+         */
+        function rgbToHex(r, g, b, a = 1) {
+            const toHex = (c) => {
+                const hex = Math.round(c).toString(16);
+                return hex.length === 1 ? '0' + hex : hex;
+            };
+            let hex = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+            if (a < 1) {
+                hex += toHex(a * 255);
+            }
+            return hex.toUpperCase();
+        }
+
+        /**
+         * Converts Hexadecimal color string to RGB.
+         * @param {string} hex Hex color string (e.g., "#RRGGBB", "#RGB", "#RRGGBBAA", "#RGBA")
+         * @returns {object} RGB color object {r, g, b, a}
+         */
+        function hexToRgb(hex) {
+            let r = 0, g = 0, b = 0, a = 1;
+
+            // Handle #RGB and #RGBA
+            if (hex.length === 4 || hex.length === 5) {
+                r = parseInt(hex[1] + hex[1], 16);
+                g = parseInt(hex[2] + hex[2], 16);
+                b = parseInt(hex[3] + hex[3], 16);
+                if (hex.length === 5) {
+                    a = parseInt(hex[4] + hex[4], 16) / 255;
+                }
+            }
+            // Handle #RRGGBB and #RRGGBBAA
+            else if (hex.length === 7 || hex.length === 9) {
+                r = parseInt(hex.substring(1, 3), 16);
+                g = parseInt(hex.substring(3, 5), 16);
+                b = parseInt(hex.substring(5, 7), 16);
+                if (hex.length === 9) {
+                    a = parseInt(hex.substring(7, 9), 16) / 255;
+                }
+            } else {
+                // Invalid hex format, return default or throw error
+                return { r: 0, g: 0, b: 0, a: 1 };
+            }
+
+            return { r, g, b, a };
+        }
+
+        /**
+         * Converts RGB color values to HSV.
+         * @param {number} r Red (0-255)
+         * @param {number} g Green (0-255)
+         * @param {number} b Blue (0-255)
+         * @param {number} a Alpha (0-1)
+         * @returns {object} HSV color object {h, s, v, a}
+         */
+        function rgbToHsv(r, g, b, a = 1) {
+            r /= 255;
+            g /= 255;
+            b /= 255;
+
+            let max = Math.max(r, g, b),
+                min = Math.min(r, g, b);
+            let h, s, v = max;
+
+            let d = max - min;
+            s = max === 0 ? 0 : d / max;
+
+            if (max === min) {
+                h = 0; // achromatic
+            } else {
+                switch (max) {
+                    case r:
+                        h = (g - b) / d + (g < b ? 6 : 0);
+                        break;
+                    case g:
+                        h = (b - r) / d + 2;
+                        break;
+                    case b:
+                        h = (r - g) / d + 4;
+                        break;
+                }
+                h /= 6;
+            }
+
+            h = Math.round(h * 360);
+            s = Math.round(s * 100);
+            v = Math.round(v * 100);
+
+            return { h, s, v, a };
+        }
+
+        /**
+         * Converts HSV color values to RGB.
+         * @param {number} h Hue (0-360)
+         * @param {number} s Saturation (0-100)
+         * @param {number} v Value (0-100)
+         * @param {number} a Alpha (0-1)
+         * @returns {object} RGB color object {r, g, b, a}
+         */
+        function hsvToRgb(h, s, v, a = 1) {
+            s /= 100;
+            v /= 100;
+
+            let c = v * s;
+            let x = c * (1 - Math.abs((h / 60) % 2 - 1));
+            let m = v - c;
+            let r = 0, g = 0, b = 0;
+
+            if (0 <= h && h < 60) {
+                r = c; g = x; b = 0;
+            } else if (60 <= h && h < 120) {
+                r = x; g = c; b = 0;
+            } else if (120 <= h && h < 180) {
+                r = 0; g = c; b = x;
+            } else if (180 <= h && h < 240) {
+                r = 0; g = x; b = c;
+            } else if (240 <= h && h < 300) {
+                r = x; g = 0; b = c;
+            } else if (300 <= h && h < 360) {
+                r = c; g = 0; b = x;
+            }
+
+            r = Math.round((r + m) * 255);
+            g = Math.round((g + m) * 255);
+            b = Math.round((b + m) * 255);
+
+            return { r, g, b, a };
+        }
+
+        /**
+         * Converts RGB color values to CMYK (approximate).
+         * @param {number} r Red (0-255)
+         * @param {number} g Green (0-255)
+         * @param {number} b Blue (0-255)
+         * @returns {object} CMYK color object {c, m, y, k}
+         */
+        function rgbToCmyk(r, g, b) {
+            let c = 1 - (r / 255);
+            let m = 1 - (g / 255);
+            let y = 1 - (b / 255);
+            let k = Math.min(c, Math.min(m, y));
+
+            c = Math.round(((c - k) / (1 - k)) * 100) || 0;
+            m = Math.round(((m - k) / (1 - k)) * 100) || 0;
+            y = Math.round(((y - k) / (1 - k)) * 100) || 0;
+            k = Math.round(k * 100);
+
+            return { c, m, y, k };
+        }
+
+        /**
+         * Converts CMYK color values to RGB (approximate).
+         * @param {number} c Cyan (0-100)
+         * @param {number} m Magenta (0-100)
+         * @param {number} y Yellow (0-100)
+         * @param {number} k Black (0-100)
+         * @returns {object} RGB color object {r, g, b}
+         */
+        function cmykToRgb(c, m, y, k) {
+            c /= 100;
+            m /= 100;
+            y /= 100;
+            k /= 100;
+
+            let r = 255 * (1 - c) * (1 - k);
+            let g = 255 * (1 - m) * (1 - k);
+            let b = 255 * (1 - y) * (1 - k);
+
+            return { r: Math.round(r), g: Math.round(g), b: Math.round(b) };
+        }
+
+        // List of common CSS named colors for approximation
+        const namedColors = [
+            { name: "black", hex: "#000000" }, { name: "white", hex: "#FFFFFF" },
+            { name: "red", hex: "#FF0000" }, { name: "lime", hex: "#00FF00" }, { name: "blue", hex: "#0000FF" },
+            { name: "yellow", hex: "#FFFF00" }, { name: "cyan", hex: "#00FFFF" }, { name: "magenta", hex: "#FF00FF" },
+            { name: "silver", hex: "#C0C0C0" }, { name: "gray", hex: "#808080" }, { name: "maroon", hex: "#800000" },
+            { name: "olive", hex: "#808000" }, { name: "green", hex: "#008000" }, { name: "purple", hex: "#800080" },
+            { name: "teal", hex: "#008080" }, { name: "navy", hex: "#000080" }, { name: "orange", hex: "#FFA500" },
+            { name: "aqua", hex: "#00FFFF" }, { name: "fuchsia", hex: "#FF00FF" },
+            { name: "darkred", hex: "#8B0000" }, { name: "darkgreen", hex: "#006400" }, { name: "darkblue", hex: "#00008B" },
+            { name: "gold", hex: "#FFD700" }, { name: "indigo", hex: "#4B0082" }, { name: "violet", hex: "#EE82EE" },
+            { name: "pink", hex: "#FFC0CB" }, { name: "brown", hex: "#A52A2A" }, { name: "beige", hex: "#F5F5DC" },
+            { name: "cornflowerblue", hex: "#6495ED" }, { name: "lightskyblue", hex: "#87CEFA" },
+            { name: "mediumseagreen", hex: "#3CB371" }, { name: "darkgoldenrod", hex: "#B8860B" },
+            { name: "chocolate", hex: "#D2691E" }, { name: "salmon", hex: "#FA8072" },
+            { name: "tomato", hex: "#FF6347" }, { name: "orchid", hex: "#DA70D6" },
+            { name: "limegreen", hex: "#32CD32" }, { name: "steelblue", hex: "#4682B4" }
+        ];
+
+        /**
+         * Finds the closest CSS named color for a given RGB color.
+         * @param {number} r Red (0-255)
+         * @param {number} g Green (0-255)
+         * @param {number} b Blue (0-255)
+         * @returns {string} The name of the closest color.
+         */
+        function getClosestNamedColor(r, g, b) {
+            let minDistance = Infinity;
+            let closestName = "unknown";
+
+            for (const color of namedColors) {
+                const hexRgb = hexToRgb(color.hex);
+                const dr = hexRgb.r - r;
+                const dg = hexRgb.g - g;
+                const db = hexRgb.b - b;
+                const distance = Math.sqrt(dr * dr + dg * dg + db * db);
+
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    closestName = color.name;
+                }
+            }
+            return closestName;
+        }
+
+        // --- Color Picker Canvas Drawing ---
+
+        /**
+         * Draws the color picker canvas (hue wheel or saturation/lightness square).
+         * For simplicity, we'll draw a saturation/lightness square based on current hue.
+         */
+        function drawColorPicker() {
+            const width = colorPickerCanvas.width;
+            const height = colorPickerCanvas.height;
+
+            // Draw saturation and lightness gradient
+            // Background with current hue, full saturation, full lightness
+            ctx.fillStyle = `hsl(${currentHsl.h}, 100%, 50%)`;
+            ctx.fillRect(0, 0, width, height);
+
+            // Overlay with white to black gradient (lightness)
+            let whiteGradient = ctx.createLinearGradient(0, 0, width, 0);
+            whiteGradient.addColorStop(0, 'rgba(255,255,255,1)');
+            whiteGradient.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.fillStyle = whiteGradient;
+            ctx.fillRect(0, 0, width, height);
+
+            // Overlay with transparent to black gradient (saturation)
+            let blackGradient = ctx.createLinearGradient(0, 0, 0, height);
+            blackGradient.addColorStop(0, 'rgba(0,0,0,0)');
+            blackGradient.addColorStop(1, 'rgba(0,0,0,1)');
+            ctx.fillStyle = blackGradient;
+            ctx.fillRect(0, 0, width, height);
+        }
+
+        /**
+         * Updates the picker indicator position based on current HSL saturation and lightness.
+         */
+        function updatePickerIndicator() {
+            const width = colorPickerCanvas.width;
+            const height = colorPickerCanvas.height;
+
+            const x = (currentHsl.s / 100) * width;
+            const y = (1 - (currentHsl.l / 100)) * height; // Invert lightness for Y-axis
+
+            pickerIndicator.style.left = `${x - pickerIndicator.offsetWidth / 2}px`;
+            pickerIndicator.style.top = `${y - pickerIndicator.offsetHeight / 2}px`;
+        }
+
+        /**
+         * Handles mouse/touch events on the color picker canvas.
+         * @param {Event} e Mouse or Touch event
+         */
+        function handleColorPickerInteraction(e) {
+            const rect = colorPickerCanvas.getBoundingClientRect();
+            let clientX, clientY;
+
+            if (e.touches) { // Touch event
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else { // Mouse event
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+
+            let x = clientX - rect.left;
+            let y = clientY - rect.top;
+
+            // Clamp values to canvas bounds
+            x = Math.max(0, Math.min(x, rect.width));
+            y = Math.max(0, Math.min(y, rect.height));
+
+            // Convert pixel coordinates to saturation and lightness
+            const s = (x / rect.width) * 100;
+            const l = (1 - (y / rect.height)) * 100; // Invert lightness for Y-axis
+
+            currentHsl.s = Math.round(s);
+            currentHsl.l = Math.round(l);
+
+            // Update sliders and global color
+            saturationSlider.value = currentHsl.s;
+            lightnessSlider.value = currentHsl.l;
+            updateColorFromHsl();
+        }
+
+        // --- Update & Sync Functions ---
+
+        /**
+         * Updates all color displays and input fields based on currentHsl.
+         */
+        function updateAllColorDisplays() {
+            currentRgb = hslToRgb(currentHsl.h, currentHsl.s, currentHsl.l, currentHsl.a);
+            const hex = rgbToHex(currentRgb.r, currentRgb.g, currentRgb.b, currentRgb.a);
+            const hslString = `hsl(${currentHsl.h}, ${currentHsl.s}%, ${currentHsl.l}%)` + (currentHsl.a < 1 ? `a(${currentHsl.a.toFixed(2)})` : '');
+            const rgbaString = `rgb(${currentRgb.r}, ${currentRgb.g}, ${currentRgb.b})` + (currentRgb.a < 1 ? `a(${currentRgb.a.toFixed(2)})` : '');
+            const hsv = rgbToHsv(currentRgb.r, currentRgb.g, currentRgb.b, currentRgb.a);
+            const hsvString = `hsv(${hsv.h}, ${hsv.s}%, ${hsv.v}%)` + (hsv.a < 1 ? `a(${hsv.a.toFixed(2)})` : '');
+            const cmyk = rgbToCmyk(currentRgb.r, currentRgb.g, currentRgb.b);
+            const cmykString = `cmyk(${cmyk.c}, ${cmyk.m}, ${cmyk.y}, ${cmyk.k})`;
+            const namedColor = getClosestNamedColor(currentRgb.r, currentRgb.g, currentRgb.b);
+
+            currentColorDisplay.style.backgroundColor = hex;
+            currentColorHex.textContent = hex;
+
+            hexInput.value = hex;
+            rgbInput.value = rgbaString;
+            hslInput.value = hslString;
+            hsvInput.value = hsvString;
+            cmykInput.value = cmykString;
+            namedColorInput.value = namedColor;
+
+            hueValue.textContent = currentHsl.h;
+            saturationValue.textContent = currentHsl.s;
+            lightnessValue.textContent = currentHsl.l;
+            alphaValue.textContent = Math.round(currentHsl.a * 100);
+
+            // Update slider backgrounds for saturation and lightness
+            const baseRgb = hslToRgb(currentHsl.h, 100, 50); // Base color for saturation gradient
+            saturationSlider.style.background = `linear-gradient(to right, hsl(${currentHsl.h}, 0%, ${currentHsl.l}%), hsl(${currentHsl.h}, 100%, ${currentHsl.l}%))`;
+            lightnessSlider.style.background = `linear-gradient(to right, black, hsl(${currentHsl.h}, ${currentHsl.s}%, 50%), white)`;
+
+            drawColorPicker();
+            updatePickerIndicator();
+            updateSimulatedColorDisplay(); // Update simulated display whenever color changes
+            updateGradientPreview(); // Update gradient preview
+        }
+
+        /**
+         * Updates currentHsl based on slider values and then updates all displays.
+         */
+        function updateColorFromSliders() {
+            currentHsl.h = parseInt(hueSlider.value);
+            currentHsl.s = parseInt(saturationSlider.value);
+            currentHsl.l = parseInt(lightnessSlider.value);
+            currentHsl.a = parseInt(alphaSlider.value) / 100;
+            updateAllColorDisplays();
+        }
+
+        /**
+         * Updates currentHsl based on currentRgb and then updates all displays.
+         */
+        function updateColorFromRgb() {
+            currentHsl = rgbToHsl(currentRgb.r, currentRgb.g, currentRgb.b, currentRgb.a);
+            hueSlider.value = currentHsl.h;
+            saturationSlider.value = currentHsl.s;
+            lightnessSlider.value = currentHsl.l;
+            alphaSlider.value = Math.round(currentHsl.a * 100);
+            updateAllColorDisplays();
+        }
+
+        /**
+         * Updates currentRgb based on currentHsl and then updates all displays.
+         */
+        function updateColorFromHsl() {
+            currentRgb = hslToRgb(currentHsl.h, currentHsl.s, currentHsl.l, currentHsl.a);
+            updateAllColorDisplays();
+        }
+
+        // --- Input Field Handlers ---
+
+        /**
+         * Handles input changes for HEX field.
+         */
+        hexInput.addEventListener('input', () => {
+            const hex = hexInput.value;
+            if (/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/.test(hex)) {
+                currentRgb = hexToRgb(hex);
+                updateColorFromRgb();
+            }
+        });
+
+        /**
+         * Parses RGB/RGBA string and updates currentRgb.
+         * @param {string} rgbString RGB/RGBA string (e.g., "rgb(255,0,0)", "rgba(0,0,0,0.5)")
+         * @returns {boolean} True if successful, false otherwise.
+         */
+        function parseRgbString(rgbString) {
+            const match = rgbString.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*(\d*\.?\d+))?\)/);
+            if (match) {
+                currentRgb.r = parseInt(match[1]);
+                currentRgb.g = parseInt(match[2]);
+                currentRgb.b = parseInt(match[3]);
+                currentRgb.a = match[4] ? parseFloat(match[4]) : 1;
+                return true;
+            }
+            return false;
+        }
+
+        /**
+         * Handles input changes for RGB field.
+         */
+        rgbInput.addEventListener('input', () => {
+            if (parseRgbString(rgbInput.value)) {
+                updateColorFromRgb();
+            }
+        });
+
+        /**
+         * Parses HSL/HSLA string and updates currentHsl.
+         * @param {string} hslString HSL/HSLA string (e.g., "hsl(0,100%,50%)", "hsla(0,0%,0%,0.5)")
+         * @returns {boolean} True if successful, false otherwise.
+         */
+        function parseHslString(hslString) {
+            const match = hslString.match(/hsla?\((\d+),\s*(\d+)%,\s*(\d+)%(?:,\s*(\d*\.?\d+))?\)/);
+            if (match) {
+                currentHsl.h = parseInt(match[1]);
+                currentHsl.s = parseInt(match[2]);
+                currentHsl.l = parseInt(match[3]);
+                currentHsl.a = match[4] ? parseFloat(match[4]) : 1;
+                return true;
+            }
+            return false;
+        }
+
+        /**
+         * Handles input changes for HSL field.
+         */
+        hslInput.addEventListener('input', () => {
+            if (parseHslString(hslInput.value)) {
+                updateColorFromHsl();
+            }
+        });
+
+        /**
+         * Parses HSV/HSVA string and updates currentHsl (via RGB conversion).
+         * @param {string} hsvString HSV/HSVA string (e.g., "hsv(0,100%,100%)")
+         * @returns {boolean} True if successful, false otherwise.
+         */
+        function parseHsvString(hsvString) {
+            const match = hsvString.match(/hsv(?:a)?\((\d+),\s*(\d+)%,\s*(\d+)%(?:,\s*(\d*\.?\d+))?\)/);
+            if (match) {
+                const h = parseInt(match[1]);
+                const s = parseInt(match[2]);
+                const v = parseInt(match[3]);
+                const a = match[4] ? parseFloat(match[4]) : 1;
+                currentRgb = hsvToRgb(h, s, v, a);
+                updateColorFromRgb();
+                return true;
+            }
+            return false;
+        }
+
+        /**
+         * Handles input changes for HSV field.
+         */
+        hsvInput.addEventListener('input', () => {
+            if (parseHsvString(hsvInput.value)) {
+                // updateColorFromHsl is called by parseHsvString via currentRgb update
+            }
+        });
+
+        /**
+         * Parses CMYK string and updates currentRgb.
+         * @param {string} cmykString CMYK string (e.g., "cmyk(0,100,100,0)")
+         * @returns {boolean} True if successful, false otherwise.
+         */
+        function parseCmykString(cmykString) {
+            const match = cmykString.match(/cmyk\((\d+),\s*(\d+),\s*(\d+),\s*(\d+)\)/);
+            if (match) {
+                const c = parseInt(match[1]);
+                const m = parseInt(match[2]);
+                const y = parseInt(match[3]);
+                const k = parseInt(match[4]);
+                currentRgb = cmykToRgb(c, m, y, k);
+                currentRgb.a = currentHsl.a; // Preserve alpha
+                updateColorFromRgb();
+                return true;
+            }
+            return false;
+        }
+
+        /**
+         * Handles input changes for CMYK field.
+         */
+        cmykInput.addEventListener('input', () => {
+            if (parseCmykString(cmykInput.value)) {
+                // updateColorFromHsl is called by parseCmykString via currentRgb update
+            }
+        });
+
+        // --- Copy to Clipboard ---
+
+        /**
+         * Displays a "Copied!" message.
+         */
+        function showCopyMessage() {
+            copyMessage.classList.add('show');
+            setTimeout(() => {
+                copyMessage.classList.remove('show');
+            }, 1500);
+        }
+
+        copyButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                const targetId = e.currentTarget.dataset.target;
+                const targetInput = document.getElementById(targetId);
+                if (targetInput) {
+                    // Use document.execCommand('copy') for better iframe compatibility
+                    targetInput.select();
+                    document.execCommand('copy');
+                    showCopyMessage();
+                }
+            });
+        });
+
+        // --- Theme Toggle ---
+
+        themeToggle.addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark');
+            const isDark = document.documentElement.classList.contains('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        });
+
+        // Apply saved theme on load
+        function applyTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            if (savedTheme === 'dark') {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        }
+
+        // --- Color History ---
+
+        /**
+         * Adds the current color to history and updates display.
+         */
+        function addColorToHistory() {
+            const hex = rgbToHex(currentRgb.r, currentRgb.g, currentRgb.b, currentRgb.a);
+            if (!colorHistory.includes(hex)) { // Avoid duplicates if same color selected consecutively
+                colorHistory.unshift(hex); // Add to the beginning
+                if (colorHistory.length > COLOR_HISTORY_MAX) {
+                    colorHistory.pop(); // Remove oldest if limit exceeded
+                }
+                localStorage.setItem('colorHistory', JSON.stringify(colorHistory));
+                renderColorHistory();
+            }
+        }
+
+        /**
+         * Renders the color history in the UI.
+         */
+        function renderColorHistory() {
+            colorHistoryContainer.innerHTML = '';
+            if (colorHistory.length === 0) {
+                colorHistoryContainer.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-sm">No history yet.</p>';
+                return;
+            }
+            colorHistory.forEach(hex => {
+                const colorSwatch = document.createElement('div');
+                colorSwatch.className = 'w-8 h-8 rounded-full shadow-md cursor-pointer border border-gray-300 dark:border-gray-600 hover:scale-110 transition-transform duration-150';
+                colorSwatch.style.backgroundColor = hex;
+                colorSwatch.title = hex;
+                colorSwatch.addEventListener('click', () => {
+                    const rgb = hexToRgb(hex);
+                    currentRgb = { r: rgb.r, g: rgb.g, b: rgb.b, a: rgb.a };
+                    updateColorFromRgb();
+                });
+                colorHistoryContainer.appendChild(colorSwatch);
+            });
+        }
+
+        // --- Saved Palettes ---
+
+        let savedPalettes = [];
+
+        /**
+         * Saves the current color as a palette with a given name.
+         */
+        function saveCurrentPalette() {
+            const paletteName = paletteNameInput.value.trim();
+            if (!paletteName) {
+                alert('Please enter a name for your palette.'); // Using alert for simplicity, could be a custom modal
+                return;
+            }
+            const currentHex = rgbToHex(currentRgb.r, currentRgb.g, currentRgb.b, currentRgb.a);
+            const newPalette = {
+                name: paletteName,
+                colors: [currentHex] // For now, saving just the current color. Could be extended to save multiple.
+            };
+
+            // Check if a palette with the same name exists and update it
+            const existingIndex = savedPalettes.findIndex(p => p.name === paletteName);
+            if (existingIndex > -1) {
+                // If exists, add the current color to it if not already present
+                if (!savedPalettes[existingIndex].colors.includes(currentHex)) {
+                    savedPalettes[existingIndex].colors.push(currentHex);
+                }
+            } else {
+                savedPalettes.push(newPalette);
+            }
+
+            localStorage.setItem('savedPalettes', JSON.stringify(savedPalettes));
+            renderSavedPalettes();
+            paletteNameInput.value = ''; // Clear input
+        }
+
+        /**
+         * Renders the saved palettes in the UI.
+         */
+        function renderSavedPalettes() {
+            savedPalettesContainer.innerHTML = '';
+            if (savedPalettes.length === 0) {
+                savedPalettesContainer.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-sm">No palettes saved yet.</p>';
+                return;
+            }
+            savedPalettes.forEach((palette, index) => {
+                const paletteDiv = document.createElement('div');
+                paletteDiv.className = 'flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-md shadow-sm border border-gray-200 dark:border-gray-600';
+                paletteDiv.innerHTML = `
+                    <div class="flex items-center gap-3 flex-wrap">
+                        <span class="font-medium text-gray-800 dark:text-gray-200">${palette.name}:</span>
+                        <div class="flex gap-1">
+                            ${palette.colors.map(colorHex => `
+                                <div class="w-6 h-6 rounded-full shadow-sm cursor-pointer border border-gray-300 dark:border-gray-600 hover:scale-110 transition-transform duration-150" style="background-color: ${colorHex};" title="${colorHex}" data-hex="${colorHex}"></div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    <button class="delete-palette-btn text-red-500 hover:text-red-700 transition-colors duration-200" data-index="${index}"><i class="fas fa-trash"></i></button>
+                `;
+                savedPalettesContainer.appendChild(paletteDiv);
+            });
+
+            // Add event listeners for loading colors from saved palettes
+            savedPalettesContainer.querySelectorAll('.w-6.h-6').forEach(swatch => {
+                swatch.addEventListener('click', (e) => {
+                    const hex = e.target.dataset.hex;
+                    const rgb = hexToRgb(hex);
+                    currentRgb = { r: rgb.r, g: rgb.g, b: rgb.b, a: rgb.a };
+                    updateColorFromRgb();
+                });
+            });
+
+            // Add event listeners for deleting palettes
+            savedPalettesContainer.querySelectorAll('.delete-palette-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const indexToDelete = parseInt(e.currentTarget.dataset.index);
+                    savedPalettes.splice(indexToDelete, 1);
+                    localStorage.setItem('savedPalettes', JSON.stringify(savedPalettes));
+                    renderSavedPalettes();
+                });
+            });
+        }
+
+        // --- Palette Generator Functions ---
+
+        /**
+         * Generates a palette based on the current color and type.
+         * @param {string} type 'monochromatic', 'analogous', 'complementary', 'triadic'
+         * @returns {Array<string>} Array of hex color strings.
+         */
+        function generatePalette(type) {
+            const baseH = currentHsl.h;
+            const baseS = currentHsl.s;
+            const baseL = currentHsl.l;
+            const generatedColors = [];
+
+            switch (type) {
+                case 'monochromatic':
+                    // Generate 5 shades/tints
+                    for (let i = -2; i <= 2; i++) {
+                        let newL = Math.max(0, Math.min(100, baseL + i * 15)); // Adjust lightness
+                        let newS = Math.max(0, Math.min(100, baseS + i * 5)); // Adjust saturation slightly
+                        generatedColors.push(rgbToHex(hslToRgb(baseH, newS, newL)));
+                    }
+                    break;
+                case 'analogous':
+                    // Generate 5 colors: current, and 2 on each side (e.g., +/- 30 degrees)
+                    for (let i = -2; i <= 2; i++) {
+                        let newH = (baseH + i * 30 + 360) % 360;
+                        generatedColors.push(rgbToHex(hslToRgb(newH, baseS, baseL)));
+                    }
+                    break;
+                case 'complementary':
+                    // Base color and its complement
+                    generatedColors.push(rgbToHex(hslToRgb(baseH, baseS, baseL)));
+                    let complementaryH = (baseH + 180) % 360;
+                    generatedColors.push(rgbToHex(hslToRgb(complementaryH, baseS, baseL)));
+                    // Add a few more shades/tints of both
+                    generatedColors.push(rgbToHex(hslToRgb(baseH, baseS, Math.max(0, baseL - 20))));
+                    generatedColors.push(rgbToHex(hslToRgb(complementaryH, baseS, Math.min(100, baseL + 20))));
+                    break;
+                case 'triadic':
+                    // Three colors equally spaced (120 degrees apart)
+                    generatedColors.push(rgbToHex(hslToRgb(baseH, baseS, baseL)));
+                    generatedColors.push(rgbToHex(hslToRgb((baseH + 120) % 360, baseS, baseL)));
+                    generatedColors.push(rgbToHex(hslToRgb((baseH + 240) % 360, baseS, baseL)));
+                    break;
+            }
+            return generatedColors;
+        }
+
+        /**
+         * Renders a generated palette in the UI.
+         * @param {Array<string>} colors Array of hex color strings.
+         */
+        function renderGeneratedPalette(colors) {
+            generatedPaletteContainer.innerHTML = '';
+            if (colors.length === 0) {
+                generatedPaletteContainer.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-sm">No palette generated.</p>';
+                return;
+            }
+            colors.forEach(hex => {
+                const colorSwatch = document.createElement('div');
+                colorSwatch.className = 'w-10 h-10 rounded-md shadow-md cursor-pointer border border-gray-300 dark:border-gray-600 hover:scale-110 transition-transform duration-150';
+                colorSwatch.style.backgroundColor = hex;
+                colorSwatch.title = hex;
+                colorSwatch.addEventListener('click', () => {
+                    const rgb = hexToRgb(hex);
+                    currentRgb = { r: rgb.r, g: rgb.g, b: rgb.b, a: rgb.a };
+                    updateColorFromRgb();
+                });
+                generatedPaletteContainer.appendChild(colorSwatch);
+            });
+        }
+
+        // --- Gradient Generator ---
+
+        /**
+         * Updates the gradient preview and CSS code.
+         */
+        function updateGradientPreview() {
+            const color1 = gradientColor1Input.value;
+            const color2 = gradientColor2Input.value;
+            const type = gradientTypeSelect.value;
+            const angle = gradientAngleInput.value;
+
+            let cssCode = '';
+            if (type === 'linear') {
+                cssCode = `linear-gradient(${angle}deg, ${color1}, ${color2})`;
+                linearAngleGroup.classList.remove('hidden');
+            } else { // radial
+                cssCode = `radial-gradient(${color1}, ${color2})`;
+                linearAngleGroup.classList.add('hidden');
+            }
+            gradientPreview.style.background = cssCode;
+            gradientCssCodeInput.value = `background: ${cssCode};`;
+        }
+
+        // --- Color Blindness Simulation ---
+
+        /**
+         * Applies a color blindness filter to an RGB color.
+         * This uses simplified matrices for demonstration.
+         * @param {object} rgb {r, g, b}
+         * @param {string} type Filter type ('normal', 'protanopia', 'deuteranopia', 'tritanopia', 'achromatopsia')
+         * @returns {object} Filtered RGB color {r, g, b}
+         */
+        function applyColorBlindnessFilter(rgb, type) {
+            let r = rgb.r / 255;
+            let g = rgb.g / 255;
+            let b = rgb.b / 255;
+
+            let R, G, B; // Filtered RGB
+
+            switch (type) {
+                case 'normal':
+                    R = r; G = g; B = b;
+                    break;
+                case 'protanopia': // Red-green color blindness (missing red cones)
+                    R = 0.56667 * r + 0.43333 * g + 0.0 * b;
+                    G = 0.55833 * r + 0.44167 * g + 0.0 * b;
+                    B = 0.0 * r + 0.24167 * g + 0.75833 * b;
+                    break;
+                case 'deuteranopia': // Red-green color blindness (missing green cones)
+                    R = 0.625 * r + 0.375 * g + 0.0 * b;
+                    G = 0.7 * r + 0.3 * g + 0.0 * b;
+                    B = 0.0 * r + 0.3 * g + 0.7 * b;
+                    break;
+                case 'tritanopia': // Blue-yellow color blindness (missing blue cones)
+                    R = 0.95 * r + 0.05 * g + 0.0 * b;
+                    G = 0.0 * r + 0.43333 * g + 0.56667 * b;
+                    B = 0.0 * r + 0.475 * g + 0.525 * b;
+                    break;
+                case 'achromatopsia': // Total color blindness (grayscale)
+                    let avg = (r + g + b) / 3;
+                    R = avg; G = avg; B = avg;
+                    break;
+                default:
+                    R = r; G = g; B = b;
+            }
+
+            return {
+                r: Math.round(Math.max(0, Math.min(255, R * 255))),
+                g: Math.round(Math.max(0, Math.min(255, G * 255))),
+                b: Math.round(Math.max(0, Math.min(255, B * 255)))
+            };
+        }
+
+        /**
+         * Updates the simulated color display based on the current color and selected filter.
+         */
+        function updateSimulatedColorDisplay() {
+            const simulatedRgb = applyColorBlindnessFilter(currentRgb, currentFilter);
+            const simulatedHex = rgbToHex(simulatedRgb.r, simulatedRgb.g, simulatedRgb.b, currentRgb.a);
+
+            simulatedColorDisplay.style.backgroundColor = simulatedHex;
+            simulatedColorHex.textContent = simulatedHex;
+        }
+
+        /**
+         * Sets the active filter button style.
+         * @param {HTMLElement} activeBtn The button to mark as active.
+         */
+        function setActiveFilterButton(activeBtn) {
+            document.querySelectorAll('.btn-secondary').forEach(btn => {
+                btn.classList.remove('active-filter');
+                btn.classList.remove('bg-indigo-600', 'text-white', 'dark:bg-indigo-500');
+                btn.classList.add('bg-indigo-100', 'text-indigo-800', 'hover:bg-indigo-200', 'dark:bg-indigo-800', 'dark:text-indigo-200', 'dark:hover:bg-indigo-700');
+            });
+            activeBtn.classList.add('active-filter');
+            activeBtn.classList.remove('bg-indigo-100', 'text-indigo-800', 'dark:bg-indigo-800', 'dark:text-indigo-200');
+            activeBtn.classList.add('bg-indigo-600', 'text-white', 'dark:bg-indigo-500', 'dark:text-white');
+        }
+
+
+        // --- Event Listeners ---
+
+        window.onload = function () {
+            // Set initial canvas dimensions
+            const size = colorPickerCanvas.offsetWidth; // Make it square based on its current width
+            colorPickerCanvas.width = size;
+            colorPickerCanvas.height = size;
+
+            applyTheme(); // Apply theme on load
+            updateAllColorDisplays(); // Initial display update
+            addColorToHistory(); // Add initial color to history
+            renderColorHistory(); // Render history on load
+            savedPalettes = JSON.parse(localStorage.getItem('savedPalettes')) || [];
+            renderSavedPalettes(); // Render saved palettes on load
+
+            // Resize canvas on window resize
+            window.addEventListener('resize', () => {
+                const newSize = colorPickerCanvas.offsetWidth;
+                colorPickerCanvas.width = newSize;
+                colorPickerCanvas.height = newSize;
+                updateAllColorDisplays(); // Redraw picker
+            });
+
+            // Color Picker Canvas Events
+            colorPickerCanvas.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                handleColorPickerInteraction(e);
+            });
+            colorPickerCanvas.addEventListener('mousemove', (e) => {
+                if (isDragging) {
+                    handleColorPickerInteraction(e);
+                }
+            });
+            colorPickerCanvas.addEventListener('mouseup', () => {
+                isDragging = false;
+                addColorToHistory(); // Add color to history when selection ends
+            });
+            colorPickerCanvas.addEventListener('mouseleave', () => {
+                isDragging = false;
+            });
+
+            // Touch events for canvas
+            colorPickerCanvas.addEventListener('touchstart', (e) => {
+                e.preventDefault(); // Prevent scrolling
+                isDragging = true;
+                handleColorPickerInteraction(e);
+            });
+            colorPickerCanvas.addEventListener('touchmove', (e) => {
+                e.preventDefault(); // Prevent scrolling
+                if (isDragging) {
+                    handleColorPickerInteraction(e);
+                }
+            });
+            colorPickerCanvas.addEventListener('touchend', () => {
+                isDragging = false;
+                addColorToHistory();
+            });
+
+            // Slider Events
+            hueSlider.addEventListener('input', updateColorFromSliders);
+            saturationSlider.addEventListener('input', updateColorFromSliders);
+            lightnessSlider.addEventListener('input', updateColorFromSliders);
+            alphaSlider.addEventListener('input', updateColorFromSliders);
+
+            // Add color to history when any slider stops changing
+            hueSlider.addEventListener('change', addColorToHistory);
+            saturationSlider.addEventListener('change', addColorToHistory);
+            lightnessSlider.addEventListener('change', addColorToHistory);
+            alphaSlider.addEventListener('change', addColorToHistory);
+
+            // Palette Generator Buttons
+            generateMonochromaticBtn.addEventListener('click', () => renderGeneratedPalette(generatePalette('monochromatic')));
+            generateAnalogousBtn.addEventListener('click', () => renderGeneratedPalette(generatePalette('analogous')));
+            generateComplementaryBtn.addEventListener('click', () => renderGeneratedPalette(generatePalette('complementary')));
+            generateTriadicBtn.addEventListener('click', () => renderGeneratedPalette(generatePalette('triadic')));
+
+            // Saved Palettes
+            savePaletteBtn.addEventListener('click', saveCurrentPalette);
+
+            // Gradient Generator Events
+            gradientColor1Input.addEventListener('input', updateGradientPreview);
+            gradientColor2Input.addEventListener('input', updateGradientPreview);
+            gradientTypeSelect.addEventListener('change', updateGradientPreview);
+            gradientAngleInput.addEventListener('input', () => {
+                gradientAngleValueSpan.textContent = `${gradientAngleInput.value}°`;
+                updateGradientPreview();
+            });
+            updateGradientPreview(); // Initial gradient render
+
+            // Color Blindness Simulator Buttons
+            simulateNormalBtn.addEventListener('click', () => { currentFilter = 'normal'; updateSimulatedColorDisplay(); setActiveFilterButton(simulateNormalBtn); });
+            simulateProtanopiaBtn.addEventListener('click', () => { currentFilter = 'protanopia'; updateSimulatedColorDisplay(); setActiveFilterButton(simulateProtanopiaBtn); });
+            simulateDeuteranopiaBtn.addEventListener('click', () => { currentFilter = 'deuteranopia'; updateSimulatedColorDisplay(); setActiveFilterButton(simulateDeuteranopiaBtn); });
+            simulateTritanopiaBtn.addEventListener('click', () => { currentFilter = 'tritanopia'; updateSimulatedColorDisplay(); setActiveFilterButton(simulateTritanopiaBtn); });
+            simulateAchromatopsiaBtn.addEventListener('click', () => { currentFilter = 'achromatopsia'; updateSimulatedColorDisplay(); setActiveFilterButton(simulateAchromatopsiaBtn); });
+
+            // Set initial active filter button
+            setActiveFilterButton(simulateNormalBtn);
+        };
+    </script>
+    <style>
+        /* Tailwind Custom Button Styles */
+        .btn-primary {
+            @apply px-4 py-2 bg-indigo-500 text-white rounded-md shadow-md hover:bg-indigo-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800;
+        }
+        .btn-secondary {
+            @apply px-4 py-2 bg-indigo-100 text-indigo-800 rounded-md shadow-sm hover:bg-indigo-200 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 dark:bg-indigo-800 dark:text-indigo-200 dark:hover:bg-indigo-700;
+        }
+        .active-filter {
+            @apply bg-indigo-600 text-white dark:bg-indigo-500 dark:text-white;
+        }
+    </style>
+</body>
+</html>
